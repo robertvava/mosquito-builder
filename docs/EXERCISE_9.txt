@@ -1,0 +1,844 @@
+ Mosquitto Club — Session 4
+
+From Breadboard to Board: PCB Design with KiCad
+
+════════════════════════════════════════════════════════════
+
+By the end of this session you will have designed your own printed circuit board. A real one. Two-layer, manufacturable, with your name silkscreened on the top. The circuit on it will be familiar — an ESP32 with a status LED, a button, a transistor-driven motor output, and a battery-monitor voltage divider — because you have already built it on a breadboard in Session 3 and you have already understood why every component is there from Session 2. This session is about turning that knowledge into copper.
+
+You will also add something genuinely new: an Inertial Measurement Unit (IMU) — the sensor that lets a flight controller know which way is up. To wire it up properly you will need to learn two of the most important communication standards in embedded electronics: I²C and SPI. You will learn how to find a part on DigiKey, read its datasheet, find or build the schematic symbol and footprint for it, and integrate it into your board.
+
+By the end of the session you will have a Gerber file. With about $5 and ten days of patience, that file becomes a stack of real boards in the post.
+
+════════════════════════════════════════════════════════════
+What you will learn
+Why PCBs exist and what problems they solve over breadboards
+
+The KiCad workflow: schematic → footprints → layout → fabrication output
+
+How to read and draw a schematic — the engineer's universal language
+
+Footprints: the physical shape that lives under each schematic symbol
+
+Net lists: the bridge between "what is connected" and "where it goes"
+
+Routing tracks, choosing trace widths, and why ground planes matter
+
+Design Rule Checks (DRC) — the compiler errors of the hardware world
+
+Generating Gerber files and ordering from a fab house
+
+How to source parts on DigiKey and Mouser, and read a datasheet to extract what you need
+
+Finding existing symbols and footprints (SnapMagic, Ultra Librarian, DigiKey's KiCad library) — and building your own when none exist
+
+I²C and SPI: the two communication buses every embedded engineer needs to understand
+
+Integrating an IMU sensor onto a flight controller PCB
+
+────────────────────────────────────────────────────────────
+
+EXERCISE 00 — WHY BOTHER WITH PCBS?
+
+────────────────────────────────────────────────────────────
+
+You have spent two sessions on breadboards. They work. So why move to PCBs?
+
+Pick up the breadboard you used last session. Wiggle it. Look closely at the resistor leg you bent into a header pin. Now imagine that breadboard strapped to a quadcopter doing 60 km/h, hitting a tree, and crash-landing in a field. How long until something falls out?
+
+A breadboard is a thinking tool. A PCB is the answer to the question "what does this thinking look like in production?". Specifically:
+
+Mechanical reliability. Every connection is soldered. Nothing wiggles loose at high G-loads.
+
+Electrical reliability. Breadboard contacts are good for maybe 100 mA before they start dropping voltage. PCB traces handle amps. Drone motor circuits routinely pull 20 A — no breadboard survives that.
+
+Size. Your breadboard ESP32 + transistor + LED setup is the size of a paperback book. The same circuit on a PCB fits on a postage stamp. On a 250 g racing drone, every gram matters.
+
+Reproducibility. Want ten of these for your club members? Order ten boards, solder ten times. With breadboards, every build is bespoke and any one of them might have a wrong connection.
+
+High-frequency behaviour. Once your signals get fast (ESCs switch at tens of kHz, ESP32 WiFi runs at 2.4 GHz), breadboards stop working entirely. The capacitance between rows scrambles the signals. PCBs are designed with controlled geometry.
+
+The cost of all this is up-front design effort. A breadboard you build in five minutes; a PCB takes an hour to lay out and a week to arrive. The trade is permanence and performance for time.
+
+Objective: Install KiCad and create an empty project. Open all three main windows: schematic editor, PCB editor, and footprint viewer.
+
+Components: Laptop with internet, around 2 GB free disk space
+
+
+Steps
+
+Go to kicad.org/download. Pick your operating system. Download and install. Allow about 1.5 GB. KiCad 8 or later is fine — KiCad 7 also works for everything in this session.
+
+Open KiCad. You will see the main project manager window. Click File → New Project. Name it session4_pcb. KiCad creates a folder containing several files — leave them alone for now.
+
+From the project manager, double-click the Schematic Editor icon. An empty schematic page opens. Close it for now.
+
+Back in the project manager, double-click the PCB Editor. An empty board opens. Close it.
+
+From any window, find the Footprint Editor in the toolbar (icon shows a microchip with a pencil). Open it just to confirm it works, then close it.
+
+Why three editors?
+
+PCB design separates two concerns: what is connected to what (schematic) and where everything physically lives (board layout). The schematic editor is for logical design; the PCB editor is for physical design. The footprint editor is where you create or modify the physical shape of a component — most of the time you use ones that already exist, but sometimes you need a custom one. Keeping these separated means you can rearrange the board layout endlessly without ever changing the circuit, and vice versa.
+
+Success Target: All three editors open without errors. You have an empty project named session4_pcb.
+
+Think About It KiCad is free and open source. Altium Designer (an industry-standard alternative) costs around £8,000 per seat per year. What might Altium offer that justifies this price for a professional company, and why is KiCad still the right choice for you?
+
+
+────────────────────────────────────────────────────────────
+
+EXERCISE 01 — YOUR FIRST SCHEMATIC
+
+────────────────────────────────────────────────────────────
+
+A schematic is a drawing. But unlike most drawings, it does not care about physical layout — it cares about connectivity. Two components are "connected" if there is a line (a "wire") between them. The actual length, shape, or path of that wire is irrelevant on the schematic. The schematic answers one question: what is connected to what?
+
+You will start with the simplest circuit imaginable: a battery, a resistor, an LED. The same one from Session 2 Exercise 2. The point is not the circuit — it is the workflow.
+
+Theory: schematic conventions
+
+Symbols represent components. A resistor is a zigzag (US) or a rectangle (EU). An LED is a triangle with two arrows pointing away. KiCad uses both — pick whichever you find clearer and stick with it.
+
+Wires are lines that carry electrical signals. A junction (a green dot, when KiCad places one) means two wires meet. No dot = the wires cross but do not connect.
+
+Power symbols are special — they represent rails like +5V, +3V3, GND. Anywhere on the schematic you place a +5V symbol, all those points are electrically the same node. This saves drawing a giant tangle of power wires.
+
+Reference designators label each component: R1, R2 for resistors; D1, D2 for diodes/LEDs; U1, U2 for ICs; C1, C2 for capacitors. Standard across the industry.
+
+Objective: Draw a schematic with a 5V supply, a 220 ohm resistor, and an LED. Annotate it (assign R1, D1) and check it compiles cleanly.
+
+Steps
+
+Open the Schematic Editor for your project. Empty page, title block at the bottom.
+
+Press A (or click the op-amp symbol on the right toolbar). The "Add Symbol" window opens. Search for R — pick R (a generic resistor). Click OK, then click on the canvas to place it. Press Esc when done.
+
+Press A again. Search for LED. Place one below the resistor.
+
+Press A again. Search for +5V. Place it above the resistor. Then add a GND symbol below the LED.
+
+Press W to start drawing wires. Click the bottom of the +5V symbol, then click the top of the resistor — wire drawn. Continue: bottom of resistor → top of LED (anode, the triangle's flat side), bottom of LED (cathode, the apex) → top of GND.
+
+Click each component and press E to edit its value. Set R1 to 220 and the LED to LED_RED (or whatever colour you fancy — this is just a label).
+
+Now the most important step: annotation. Click Tools → Annotate Schematic. This assigns reference designators (R1, D1) to your components automatically. Click "Annotate" and confirm.
+
+Run the Electrical Rules Check: Inspect → Electrical Rules Checker. Click "Run ERC". You should get zero errors. If you see warnings about unconnected pins, you missed a wire somewhere — fix it.
+
+Why ERC matters
+
+ERC is to schematics what a compiler is to code. It catches structural mistakes before they become physical mistakes: floating inputs, two outputs shorted together, power pins with no power supplied. The errors are sometimes cryptic but always meaningful. A clean ERC is the minimum bar for moving on to layout — you do not order a PCB with ERC errors.
+
+Success Target: Schematic shows +5V → R1 (220Ω) → D1 (LED) → GND, with all components annotated and ERC clean.
+
+Think About It You drew the wire from the resistor to the LED but ERC complains: "Pin not connected". You can clearly see the wire in the schematic. What might have gone wrong? (Hint: pixel-perfect alignment.)
+
+
+────────────────────────────────────────────────────────────
+
+EXERCISE 02 — FOOTPRINTS — THE BRIDGE TO PHYSICAL REALITY
+
+────────────────────────────────────────────────────────────
+
+A schematic symbol says "this is a resistor". It does not say which resistor. A resistor can be a tiny 0402 SMD chip the size of a grain of sand, a fat 1206 SMD pad you can solder by hand, or a classic through-hole part with two leads. Same symbol, very different physical realities.
+
+A footprint is the physical shape of a component on the PCB: where the copper pads go, what size they are, how far apart they sit, and the silkscreen drawing that shows the part outline. Linking a symbol to a footprint is the bridge between "what" and "where".
+
+Theory: through-hole vs SMD
+
+Through-hole (THT): leads poke through holes drilled in the board, soldered on the underside. Robust, beginner-friendly, larger, slower to assemble. Good for connectors, switches, and your first board.
+
+Surface mount (SMD): pads sit on top of the board; the component is placed directly onto them. Smaller, faster to assemble, harder to solder by hand at small sizes. Standard sizes for passives are named by their imperial dimensions in hundredths of an inch: 1206 (3.2 × 1.6 mm — easy to hand-solder), 0805 (2.0 × 1.25 mm — fiddly but doable), 0603 (1.6 × 0.8 mm — needs steady hands), 0402 (1.0 × 0.5 mm — really not for beginners).
+Dont mix these up. My first board used 0603s but metric ones (0.6mm x 0.3mm). I prefer to use the metric designator but both are fine, just be clear about which one you are using.
+
+For your first board, use 1206 for resistors and capacitors, and through-hole for everything else. You can hand-solder this with a basic iron and no magnification.
+
+Objective: Assign physical footprints to each schematic symbol from Exercise 1, then generate a net list and confirm the layout editor sees the components.
+
+Steps
+
+In the Schematic Editor, click Tools → Assign Footprints (or the icon that looks like a chip with a footprint behind it).
+
+The footprint assignment window opens with three columns: footprint libraries on the left, your schematic symbols in the middle, available footprints on the right.
+
+Click R1 in the middle column. In the left column, scroll to Resistor_SMD. In the right column, find Resistor_SMD:R_1206_3216Metric. Double-click it. R1 now has a footprint assigned.
+
+Click D1. In the left column, browse to LED_THT. In the right column, find LED_THT:LED_D5.0mm (a standard 5 mm round LED). Assign it.
+
+Click OK. Save the schematic.
+
+Now switch to the PCB Editor for the same project. It is empty. Click Tools → Update PCB from Schematic (or press F8). A dialog appears showing what will be added. Click "Update PCB", then "Close".
+
+The components now appear, all clumped together at the origin. Click and drag each one to spread them out so you can see them clearly. Notice the thin lines between pads — those are the rat's nest, KiCad's representation of "these need to be connected, but you have not routed them yet".
+
+Why the two-step process?
+
+Schematic and layout are decoupled on purpose. You can change the layout fifty times and the schematic stays untouched. You can swap a 1206 resistor for an 0805 by changing only the footprint — no schematic changes needed. The net list (the data the F8 update sends across) is the contract between them: "these pads are electrically the same, route them however you like."
+
+Success Target: PCB editor shows three components with rat's nest lines connecting them. No errors on update.
+
+Think About It You assign D1 a footprint of LED_SMD:LED_0603 instead of the through-hole 5 mm part. The schematic does not change. The board still says "LED" in silkscreen. But when you order the board and place a 5 mm LED you bought from your spare parts drawer, it does not fit. Why does the schematic not catch this?
+
+
+────────────────────────────────────────────────────────────
+
+EXERCISE 03 — LAYOUT AND ROUTING
+
+────────────────────────────────────────────────────────────
+
+You now have components on a board with rat's nest lines showing what should be connected. The job of layout is to: (a) decide where each component goes, (b) draw an outline for the board, and (c) replace each rat's nest line with actual copper.
+
+Theory: layout decisions matter
+
+Where you place a component is not arbitrary. A few rules of thumb that apply to every board you will ever make:
+
+Connectors near the edges. USB, power, and signal connectors should be on the board edge so cables can plug in.
+
+Decoupling caps next to the chip they decouple. Right next to the power pins, with the shortest possible trace.
+
+Group related components. The motor driver lives near the motor connector. The voltage regulator lives near the power input. Sensors live near their associated chip.
+
+Crossings cost layers. If two traces need to cross and you only have one layer, you cannot do it directly. You need a via to jump to another layer. Plan placement to minimise crossings.
+
+Heat-producing components have space. Voltage regulators, transistors at high current, and motor drivers get hot. Do not crowd them.
+
+Objective: Place the three components from Exercise 2 on a small board, draw the board outline, and route the connections in copper.
+
+Steps
+
+In the PCB Editor, click on the Edge.Cuts layer in the right-side layer list. This is the layer that defines the physical board outline.
+
+Use the rectangle tool (right toolbar) to draw a rectangle about 30 × 20 mm. This is your board.
+
+Move R1 and D1 inside the rectangle. Place R1 on the left, D1 on the right. Leave the +5V and GND symbols as labels for now — they will become through-hole pads (test points) we add separately later.
+
+Add two through-hole pads for power input. Place → Add Footprint. Search for TestPoint_Pad_D2.0mm. Place two of them, label one +5V and one GND by selecting and pressing E. Wire them in the schematic too (back-annotate using F8 from the schematic side). Or, simpler for this exercise: add a 2-pin pin header — search for PinHeader_1x02_P2.54mm_Vertical.
+Try doing both of these. Understand the difference in what they offer. Test points are useful for debugging as they let you use your multimeter to check what the voltage is at specific points.
+
+Switch to the F.Cu layer (front copper) by clicking it in the layer list.
+
+Press X to start routing. Click on the +5V pad of the header, then click on the closest pad of R1. KiCad draws a copper trace. Continue: other pad of R1 → anode of D1. Then route cathode of D1 → GND of the header.
+
+The rat's nest lines should disappear as you route. If they remain, you missed a connection.
+
+Click View → 3D Viewer. KiCad renders a photorealistic 3D model of your board. This is what you will hold in your hand in two weeks.
+
+Why 0.25 mm default trace width is not enough for power
+
+KiCad defaults to 0.25 mm traces. That is fine for a signal carrying milliamps, but a motor pulling 1 A through a 0.25 mm trace warms it up significantly and drops voltage. Rule of thumb on a 1 oz copper board (the standard): 1 mm trace handles roughly 1 A with a small temperature rise; 2 mm handles 2 A. The actual relationship is the IPC-2152 chart — look it up when current matters. For your first board, use 0.5 mm for signals and 1.0 mm or wider for power.
+
+Success Target: Board is fully routed (no rat's nest lines remain) on a single layer. 3D viewer shows a recognisable PCB with components placed.
+
+Think About It You route a 1 A motor return current through a 0.2 mm trace by mistake. The board powers up and seems to work fine on the bench. Two weeks later, in flight, the trace fails — the motor stops, the drone falls. The trace looks intact under a microscope but the copper has gone discoloured. What happened, and what is the underlying physics?
+
+
+────────────────────────────────────────────────────────────
+
+EXERCISE 04 — GROUND PLANES, DECOUPLING, AND TRACE WIDTHS
+
+────────────────────────────────────────────────────────────
+
+Two refinements separate amateur boards from professional ones: the ground plane on the back side, and proper decoupling at every chip. Both are the kind of thing you can skip and "the board still works" — until it does not, and you spend a week debugging mysterious resets.
+
+Theory: the ground plane
+
+Instead of routing GND as individual traces, modern two-layer boards fill the entire back side with copper, all connected to GND. This single sheet of copper is the ground plane. It does three things at once:
+
+Gives every component a short path back to ground. Click any GND pad — the back side is right there.
+
+Acts as a mirror for high-frequency signals on the top side. Signals propagate against the ground plane and stay clean. Without it, fast signals radiate everywhere.
+
+Conducts heat. The whole board acts as a heatsink for any component that connects to GND.
+
+Every flight controller, every motherboard, every sensor module you have ever opened up has a ground plane. It is not optional for serious work.
+
+Use an LLM to read up more about why we use ground planes. 
+
+Theory: decoupling capacitors
+
+Section 7 of Session 2 explained why drones have big capacitors at the battery connector — they absorb voltage spikes when motors switch. The same idea applies at every chip: a small capacitor (typically 100 nF) right next to each power pin, providing instant local current when the chip suddenly draws more.
+
+This is why every microcontroller datasheet says "place a 100 nF cap as close as possible to each VCC pin". The cap is local energy storage. The trace from the cap to the VCC pin must be short, because long traces have inductance — and inductance fights sudden current changes, defeating the cap's purpose.
+
+Objective: Add a ground plane to the back of the board, and add a 100 nF decoupling capacitor next to a chip (we will reuse R1's location as a stand-in chip pin for now).
+
+Steps
+
+In the PCB editor, switch to the B.Cu (back copper) layer.
+
+Use the Add Filled Zone tool (right toolbar — looks like a cross-hatched square). Click somewhere inside your board outline. A dialog opens.
+
+Set the Net to GND. Set the layer to B.Cu. Click OK. Now click the four corners of your board, just inside the Edge.Cuts outline, to draw a polygon covering the whole back. Right-click and "Close" to finish.
+
+Press B. The zone fills with copper, automatically routed around every other-net trace and pad on the back. The bottoms of any GND pads are now connected to this copper. Beautiful.
+
+Now add a decoupling cap. Open the schematic again. Add a C symbol from Device library. Set its value to 100nF. Wire one side to +5V, other side to GND.
+
+Assign it the footprint Capacitor_SMD:C_1206_3216Metric.
+
+Back in PCB editor, press F8 to update from schematic. The new cap appears. Place it as close as possible to wherever the +5V power enters your "circuit" (in this exercise, near R1 since R1 represents your fictional chip).
+
+Route the cap's two pads to +5V and GND. Press B to re-fill the ground plane — it now flows around the new cap.
+
+Why "as close as possible" really matters
+
+A trace 10 mm long has roughly 10 nH of inductance. At 100 MHz (the clock speed of fast chips), that 10 nH presents an impedance of about 6 ohms. Your decoupling cap fights this when delivering instantaneous current. Move the cap right next to the chip and the trace is 1 mm — 1 nH — under 1 ohm. The cap can do its job. Place the cap on the other side of the board and you might as well not have it.
+
+Success Target: Back side of board is a continuous copper plane connected to GND. A 100 nF cap is placed next to its load with sub-2 mm traces on both sides.
+
+Think About It Your board has a ground plane on the back, but you also routed one signal trace on the back (because it was easier than putting a via and routing on top). The signal works fine on the bench. When you take the drone flying with the radio transmitter on, the ESP32 randomly resets. What is happening, and what is the fix?
+
+
+
+────────────────────────────────────────────────────────────
+
+EXERCISE 05 — SOURCING PARTS — DIGIKEY, MOUSER, AND THE DATASHEET
+
+────────────────────────────────────────────────────────────
+
+So far every component you have used has been a stock part from KiCad's libraries — generic resistors, generic LEDs, generic transistors. For a real board you need to buy real parts, and that means going to a distributor, picking specific part numbers, and reading their datasheets to make sure they fit your board. This is the most under-taught skill in hobby electronics. Get good at it and you can design anything; skip it and you will keep making boards where the parts do not fit.
+
+The big distributors
+
+DigiKey (digikey.com) — US-based, ships worldwide. The most comprehensive search interface. Their parametric filters are unmatched: search "10k resistor" and you can filter by package size, tolerance, power rating, temperature coefficient, and stock level all at once. A distributor first, but their site is also a learning tool.
+
+Mouser (mouser.com) — DigiKey's main competitor, slightly cheaper for some parts, similar catalogue. Worth checking both before ordering, especially for anything more than $20.
+
+Farnell / element14 (uk.farnell.com) — UK/EU presence, faster local shipping than DigiKey for European customers. The catalogue is smaller but the basics are all there.
+
+LCSC (lcsc.com) — Chinese distributor, owned by JLCPCB. Cheap and comprehensive but slower shipping. If you are also ordering boards from JLCPCB and assembled boards (PCBA), LCSC parts are the ones JLCPCB stocks for assembly. Worth knowing about for later.
+
+AliExpress / eBay — fine for finished modules and breakout boards, but never for individual chips on a serious project. Counterfeit rates are high; the MPU-6050 is a classic example, where the part you receive is often a relabelled clone with worse performance than the real thing.
+This is the Claude take. The reality is that as long as you aren’t going for extreme performance, what you can get on AliExpress is extraordinary and you should take the time to get past the awful UX to see the gems you can find on there. 
+
+How to actually use DigiKey
+
+Go to digikey.com. Use the search bar at the top. Search for MPU-6050 (the IMU we will use later). You should get a few results.
+
+Click the first result that says "TDK InvenSense" as the manufacturer. The product page tells you everything important: stock level, price at different quantities, package type (here, "QFN-24"), datasheet link, and a "media" tab with 3D models and CAD files.
+
+Click the datasheet link. A PDF opens. This is the source of truth for everything about this part. Bookmark it. Every other source — Adafruit tutorials, blog posts, AI explanations — is downstream of this PDF.
+
+The datasheet tells you: the pinout, the supply voltage range (here, 2.375V to 3.46V — note that this is a 3.3V part, you cannot give it 5V), the maximum I²C clock speed (400 kHz fast mode), the package dimensions in millimetres, and the recommended PCB land pattern.
+
+Now do a parametric search. From DigiKey home, click "Products" → "Sensors, Transducers" → "Motion Sensors - IMUs". You see filters on the left: number of axes, output, supply voltage, package, stock. Set "In Stock" and "6-axis" — see what comes up. This is how a real engineer chooses parts. You filter by your constraints, then read datasheets of the top three options.
+
+Reading a datasheet — what to look for first
+
+A datasheet can be 80 pages. You do not read all of it on the first pass. You read these sections, in this order:
+
+Page 1 — the summary. What does it do, in 100 words. Key specifications. Headline features.
+
+Block diagram. A picture of what is inside the chip and how the blocks connect. You learn more from this than from any prose description.
+
+Pinout / pin description table. Which pin is which. Power, ground, I/O, special functions. You will refer to this every time you draw the schematic symbol.
+
+Absolute maximum ratings. The voltages and currents above which the chip dies. Always design well below these.
+
+Recommended operating conditions. The voltages and currents at which the chip is designed to work. Stay inside this envelope.
+
+Application schematic / typical application circuit. Towards the back. The manufacturer's reference design. Start here. Copy the decoupling caps, the pull-up resistors, the bypass arrangements.
+
+Package drawing. The dimensions of the physical part. You use this to verify your footprint matches reality.
+
+PCB layout recommendations. Some datasheets include them, some don't. When present, follow them — the application engineer who wrote the datasheet has built the part on a board many times and knows what works.
+
+Objective: Find the MPU-6050 IMU on DigiKey, open its datasheet, and answer five specific questions about it without searching the web.
+
+Components: A computer with internet, a saved copy of the MPU-6050 datasheet PDF
+
+
+Steps
+
+Find the MPU-6050 product page on DigiKey. Bookmark it.
+
+Download the datasheet PDF. It is named something like MPU-6000-Datasheet1.pdf. Open it.
+
+Answer the following from the datasheet alone:
+
+What is the supply voltage range (VDD)?
+
+What is the I²C address of the chip when the AD0 pin is tied to GND? When tied to VDD?
+
+What is the maximum SPI clock frequency?
+
+How many pins does the chip have, and what is the package size in millimetres?
+
+Section 7.2 of the datasheet shows a typical application circuit. What value of capacitor does it recommend on the VLOGIC pin?
+
+Now look at the front of the datasheet. There may be a banner saying "Not Recommended for New Designs" or "NRND". The MPU-6050 has been EOL'd by TDK. The replacement is the ICM-42688-P for performance, or the ICM-42670-P for ease of use. For learning purposes the MPU-6050 is fine because every Arduino tutorial uses it and breakout boards are everywhere — but a serious new design today would pick a current part. This is itself a lesson: parts go obsolete, and a real engineer checks lifecycle status before committing to a part.
+
+Why this matters for our flight controller
+
+We will use a GY-521 breakout board carrying an MPU-6050. It is around £3 on Amazon, available everywhere, and you do not have to solder the QFN package yourself. You will design your PCB to accept the breakout board on a 1×8 or 2×4 pin header. The breakout board is itself a tiny PCB with the chip, the decoupling caps, and pull-up resistors already on it — exactly what the datasheet's application circuit shows, but pre-built.
+
+This is a real-world technique called the "module approach": for parts that are hard to hand-solder, buy them as breakout boards and design your PCB to host the breakout. Real flight controllers do not do this — they put the chip directly on the board, because every gram counts. But for learning, prototyping, and any board that is not weight-constrained, modules are the right answer.
+
+Success Target: You can find a part on DigiKey, identify its datasheet, and extract specific facts from it without help.
+
+Think About It The MPU-6050 datasheet says VDD range is 2.375V to 3.46V. Your breakout board (the GY-521) has a 5V regulator on it that drops 5V down to 3.3V before feeding the chip. Why is this on the breakout, and why might you NOT want to put a 5V → 3.3V regulator on your own board if the ESP32 already has one?
+
+
+────────────────────────────────────────────────────────────
+
+EXERCISE 06 — SYMBOLS AND LIBRARIES — FIND ONE OR MAKE ONE
+
+────────────────────────────────────────────────────────────
+
+KiCad ships with thousands of symbols and footprints. But they cover maybe 10% of the parts you might want to use. The rest of the time you are either downloading symbols from third-party libraries, or making your own. Both are core skills.
+
+The four-step hierarchy of "where do I get the symbol"
+
+When you need a part, search in this order. Stop as soon as you find something good.
+
+KiCad's built-in libraries. Press A in the schematic editor and search. Common chips, all standard passives, most connectors, regulators, transistors are there. Free, vetted, and always up to date with KiCad releases.
+
+DigiKey's KiCad library on GitHub (github.com/Digi-Key/digikey-kicad-library). Maintained by DigiKey's engineering team. Comprehensive and trustworthy. You add it to KiCad once and forget about it.
+
+SnapMagic Search (formerly SnapEDA) (snapmagic.com). Free signup. Search by manufacturer part number, download a ZIP with symbol, footprint, and 3D model. Vetted symbols are marked with a green check. Tens of millions of parts.
+
+Ultra Librarian (ultralibrarian.com). Similar to SnapEDA. Free signup. Some parts are on one site and not the other, so check both.
+
+Make it yourself. When the above all come up empty (rare but happens for niche parts and Chinese modules), you build the symbol and footprint from the datasheet. We will do this for the 30-pin ESP32 dev board, because the ESP32 dev module's symbol in KiCad is for the bare chip, not the dev board with its specific 30-pin layout.
+
+The Import-LIB-KiCad-Plugin
+
+KiCad has a plugin called Import-LIB-KiCad-Plugin (search in KiCad's Plugin and Content Manager). Once installed, it knows how to take ZIP files from SnapEDA, Ultra Librarian, EasyEDA, and Octopart and slot them straight into your project libraries. Highly recommended — install it once and using third-party libraries becomes a one-click operation.
+
+Objective: Build a custom schematic symbol for the 30-pin ESP32 dev module from scratch, save it to a project-specific library, and use it in your schematic.
+
+Why the 30-pin board needs a custom symbol
+
+KiCad's Module_ESP32_DEVKITV1 symbol is for the 38-pin DevKit V1. Your boards are 30-pin, which is missing pins 6–11 of the bare chip on the underside. The arrangement of pins along each edge is different. If you use the wrong symbol, your schematic will be drawn for one pinout and your footprint will be for another — your traces will go to the wrong pins and the board will not work.
+
+Steps
+
+Search DigiKey or Amazon for "ESP32 30-pin dev board pinout" and download a clear pinout image. The most common 30-pin ESP32 board has 15 pins down each side, with USB at one end and the EN button at the other. Print the pinout out, or have it open on a second screen.
+
+In KiCad's project manager, click Tools → Edit Schematic Symbols to open the Symbol Editor.
+
+Click File → New Library. Name it session4_custom. When prompted, choose "Project" (not Global) so the library lives inside your project folder. This keeps your project self-contained.
+
+With session4_custom selected in the left panel, click File → New Symbol. Name it ESP32_DevKit_30pin. Reference designator U. Click OK.
+
+You see an empty editing canvas with a small anchor (the origin). Now you draw a rectangle and add pins.
+
+Click the rectangle tool (right toolbar). Drag a rectangle big enough for 30 pins — 15 down each side. Roughly 1000 mils wide × 1500 mils tall is a good starting size. (KiCad's grid is in mils inside symbols, by tradition.)
+
+Click the pin tool (right toolbar — looks like a pin with a number). For each pin, you need to specify: pin number (its position on the connector), pin name (its function, e.g. GPIO4 or 3V3), electrical type (input, output, power, passive — gets ERC right), and the position.
+
+Working from your printed pinout, place pins one at a time. Common arrangement: 3V3 at top-left, GND somewhere, then GPIOs in numerical-ish order. Set the type for each: 3V3 and 5V and VIN are "Power Input"; GND is "Power Input"; GPIOs are "Bidirectional"; the EN pin is "Input".
+
+Save (Ctrl-S). Close the symbol editor.
+
+In your schematic, press A and search for ESP32_DevKit_30pin — your symbol appears. Place it. Wire it up to your design.
+
+Tips that will save you an hour
+
+Pin numbers come from the physical connector, not from the chip. Pin 1 of your symbol = pin 1 of the dev board's pin header (usually the top-left or marked with a square pad). Get this wrong and the schematic and footprint are misaligned.
+
+Group pins logically. All power on one side, all ground at the bottom or top, GPIOs in numerical order. The schematic becomes more readable. The default KiCad layout for a 30-pin chip is usually 15-up, 15-down — for clarity, you might split it into two columns of 15.
+
+Use the pin "name" for the function, not the position. Pin 23 of the dev board exposes GPIO 21 on most 30-pin boards. The pin number is 23; the pin name is GPIO21. The schematic reader looks at the name; the footprint matcher looks at the number.
+
+Add a description and keywords. In the Symbol Properties dialog (Inspect → Symbol Properties), add ESP32 30-pin dev board with USB as the description. This text shows up in the symbol search box, making it easier to find later.
+
+For the footprint
+
+You also need a footprint — physical pads to receive the dev board's pin headers. The common 30-pin board uses two rows of 15 pins on a 2.54 mm (0.1 inch) pitch, with the rows about 25.4 mm apart (the exact spacing varies, so MEASURE YOUR ACTUAL BOARD). KiCad has these — search for PinSocket_2x15_P2.54mm in Connector_PinSocket_2.54mm. But the row spacing might not match your specific board. You may need to make a custom footprint, or modify an existing one.
+
+To make a custom footprint:
+
+Open Footprint Editor. File → New Library → name it session4_custom (project-level). File → New Footprint → name it ESP32_30pin_socket.
+
+Place pads using the pad tool. For through-hole pin sockets, pads are circular through-hole pads. Pad number must match the pin number on your symbol.
+
+The two rows of 15 sit at e.g. Y = +12.7 mm and Y = -12.7 mm (25.4 mm row spacing for one common board). Pins along each row at 2.54 mm intervals (X = 0, 2.54, 5.08, 7.62, ...). Use grid snapping to keep them aligned.
+
+Add silkscreen on the F.Silkscreen layer showing the dev board outline and the position of the USB connector — useful when placing on the PCB.
+
+Save. Now in your schematic, edit the symbol's properties and assign your new footprint.
+
+Success Target: You have a custom symbol for the 30-pin ESP32 in your project library, with all 30 pins correctly numbered and named. You can place it on a schematic and ERC passes.
+
+Think About It You build the ESP32 symbol carefully, but when you go to assign the footprint, you realise you cannot find a 30-pin pin socket footprint anywhere. The closest is 2x15 — which has 30 pins but in two rows of 15. Your physical dev board has 30 pins but in TWO rows of 15. So why does the search not find the right footprint, and where might it be hiding under a slightly different name?
+
+
+────────────────────────────────────────────────────────────
+
+EXERCISE 07 — I²C AND SPI — TALKING TO CHIPS
+
+────────────────────────────────────────────────────────────
+
+Sessions 2 and 3 covered the ways an ESP32 can interact with the world using single GPIOs: digital read/write, analog read, PWM. That covers buttons, LEDs, transistors, and analog sensors. But a modern sensor is not analog. A modern sensor is a chip with an ADC inside it that produces a number, then sends that number to your microcontroller as a stream of bits over a digital communication bus.
+
+Two buses dominate embedded electronics: I²C (two wires) and SPI (four wires). Almost every chip you will ever interface with uses one or both. Time to learn them.
+
+I²C: two wires, many chips
+
+I²C (pronounced "eye-squared-see" or "eye-two-see") was invented by Philips in the 1980s. It uses just two wires plus power and ground:
+
+SDA (Serial Data) — the data line.
+
+SCL (Serial Clock) — the clock line.
+
+Both lines need pull-up resistors to VCC (typically 4.7 kΩ) — essential. Without these, the bus does not work at all.
+
+The cleverness of I²C is that you can attach many chips to the same two wires. Each chip has a unique 7-bit address — a number burnt into the chip at the factory (sometimes with one or two configurable bits). When the master (your ESP32) wants to talk to a particular chip, it puts the chip's address on the bus first, then the data. All chips see the address; only the matching one responds.
+
+The MPU-6050's I²C address is 0x68 by default (with AD0 pulled low) or 0x69 (with AD0 pulled high). This is in the datasheet you read in Exercise 5.
+
+Why pull-ups? I²C uses open-drain outputs. A chip can pull the line LOW or release it (high-impedance). It cannot drive the line HIGH. The pull-up resistor is what brings the line HIGH when nobody is pulling it down. This scheme means multiple chips can share the bus without ever fighting each other electrically — and if a chip dies, it cannot stick the bus HIGH. The trade-off is speed: pull-ups limit how fast the line can rise, capping I²C at typically 100 kHz, 400 kHz, or (with effort) 1 MHz.
+
+On the ESP32: the default I²C pins are GPIO 21 (SDA) and GPIO 22 (SCL), but you can use any two GPIOs because the ESP32 has flexible pin matrix. The Arduino library is Wire. Reading the MPU-6050 is a few lines of code:
+
+#include <Wire.h>
+
+Wire.begin(21, 22);
+
+Wire.beginTransmission(0x68);
+
+Wire.write(0x3B);  // accelerometer X high byte register
+
+Wire.endTransmission(false);
+
+Wire.requestFrom(0x68, 6);
+
+int16_t accelX = Wire.read() << 8 | Wire.read();
+
+SPI: four wires, faster
+
+SPI (Serial Peripheral Interface) uses four wires instead of two:
+
+MOSI (Master Out, Slave In) — data from master to chip.
+
+MISO (Master In, Slave Out) — data from chip to master.
+
+SCLK (Serial Clock) — the clock line.
+
+CS or SS (Chip Select / Slave Select) — one per chip; pulled LOW to talk to that chip.
+
+SPI is faster than I²C — easily 10–50 MHz on a modern microcontroller. There are no pull-ups. There is no addressing — instead, you give every chip its own CS line. Want to add a second chip? Add another GPIO and run another CS. Want a third? Same again.
+
+The MPU-6050 supports I²C only. The ICM-42688-P (its modern replacement) supports both I²C and SPI. Real flight controllers always use SPI for the IMU because of the speed: a flight controller needs sensor data thousands of times per second, and I²C's 400 kHz cap means each sensor read takes microseconds you cannot afford.
+
+Which bus to choose
+
+
+
+I²C
+SPI
+Wires
+2
+4 (+1 per chip for CS)
+Pull-ups needed
+Yes
+No
+Speed
+Up to 1 MHz typical
+Up to 50+ MHz
+Multiple chips
+All on same 2 wires (different addresses)
+Each chip needs its own CS
+Complexity to wire
+Low
+Medium
+Best for
+Multiple slow sensors
+One or two fast sensors
+
+
+For this flight controller: we will use I²C for simplicity. The MPU-6050 only does I²C, and at 400 kHz we can read all 6 axes about 1000 times per second — fast enough for an introductory flight controller. When you graduate to a serious build, switch to SPI and an ICM-42688-P.
+
+Objective: Add the I²C wiring (SDA, SCL, pull-ups) into your schematic in preparation for the design challenge. No physical action yet — just understanding what the schematic should look like.
+
+The wiring (which you will use in the design challenge)
+
+ESP32 GPIO 21 → SDA pad of IMU breakout. Add a 4.7 kΩ resistor between this trace and 3.3V.
+
+ESP32 GPIO 22 → SCL pad of IMU breakout. Add a 4.7 kΩ resistor between this trace and 3.3V.
+
+IMU breakout VCC → 3.3V (or 5V if your breakout has its own regulator — check the silkscreen on the breakout).
+
+IMU breakout GND → GND.
+
+IMU AD0 pin (if exposed on breakout) → GND, to set address 0x68.
+
+Success Target: You can explain in one sentence why I²C needs pull-ups and SPI does not. You can list the four SPI signals and the two I²C signals.
+
+Think About It You add an I²C breakout (with SDA, SCL pads) to your board, but you forget the pull-up resistors entirely. You upload your code. Your ESP32 reports "device not found" at address 0x68. You measure SDA and SCL with the multimeter — both read 0V. What is happening, and which line of physics are you violating?
+
+
+────────────────────────────────────────────────────────────
+
+EXERCISE 08 — DRC, GERBERS, AND ORDERING
+
+────────────────────────────────────────────────────────────
+
+The board "works" in the editor. But manufacturers do not read KiCad files — they read Gerber files, the universal format for PCB fabrication. Before generating Gerbers, you run a Design Rule Check (DRC) to catch geometric mistakes: traces too close, holes too small, components overlapping the board edge.
+
+Theory: Gerbers and the fab house
+
+A Gerber file is essentially a list of shapes for one layer of your board: "draw a circle here, a rectangle there, fill this polygon". You generate one Gerber per layer (top copper, bottom copper, top silkscreen, bottom silkscreen, top solder mask, bottom solder mask, edge cuts) plus a drill file telling the manufacturer where to drill holes. Six to eight files in total, packaged in a ZIP.
+
+You upload the ZIP to a fab house — JLCPCB, PCBWay, Aisler, Eurocircuits, OSH Park. They check it, accept it, and a few days later your boards arrive. JLCPCB starts at around $2 for five copies of a small two-layer board, and you generally pay more for shipping than for the boards themselves.
+
+Objective: Run DRC, fix any errors, generate the Gerber and drill files, and (optionally) submit them to a fab.
+
+Steps
+
+In the PCB editor, click Inspect → Design Rule Checker. Click "Run DRC".
+
+Common errors and their meanings:
+
+"Clearance violation" — two pieces of copper from different nets are too close. Move one apart.
+
+"Track is unconnected" — you forgot to route something. Look at the rat's nest.
+
+"Hole near edge" — a drill hole is too close to the board outline. Move the part inward.
+
+"Pad-to-track clearance" — your trace runs too close to a pad it does not connect to.
+
+Fix every error. Re-run DRC. Iterate until you see "0 errors". Warnings are usually safe to ignore but read them anyway.
+
+Click File → Fabrication Outputs → Gerbers.... The dialog defaults are mostly correct. Make sure these layers are checked: F.Cu, B.Cu, F.Silkscreen, B.Silkscreen, F.Mask, B.Mask, Edge.Cuts. Set output directory to something like gerbers/. Click "Plot".
+
+While still in that dialog, click "Generate Drill Files". Defaults are fine. Click "Generate Drill File".
+
+Open the gerbers/ folder. You should see seven .gbr files plus one .drl file. Select all of them, right-click, "Send to → Compressed (zipped) folder". You now have a fabrication ZIP.
+
+(Optional, if you have a card and want a board) Go to jlcpcb.com → "Order Now". Drag your ZIP onto the page. Their viewer renders your board. Check the dimensions match your Edge.Cuts. Default options are fine for a first board: green solder mask, white silkscreen, HASL finish, 1.6 mm thickness, 1 oz copper. Quantity 5 (the minimum). Pay. Wait 7–14 days.
+
+Why the JLCPCB viewer is your friend
+
+Open the ZIP at the JLCPCB Gerber viewer. You can rotate, zoom, and view each layer individually. If something looks wrong here — a missing trace, a mirrored layer, a logo on the wrong side — fix it now, before paying. Treat the viewer as your last line of defence against costly mistakes.
+
+Success Target: DRC passes with zero errors. Gerber ZIP contains all seven Gerber layers plus drill file. JLCPCB viewer (or your fab's viewer) renders the board correctly.
+
+Think About It You upload your Gerber ZIP to JLCPCB and the viewer shows the silkscreen text mirrored on the bottom side of the board. You meant for the text to be on the top. What probably went wrong, and how would you check before paying?
+
+
+────────────────────────────────────────────────────────────
+
+EXERCISE 09 — DESIGN CHALLENGE — FLIGHT CONTROLLER WITH IMU
+
+────────────────────────────────────────────────────────────
+
+You have done the workflow on a one-LED demo, learned to source parts, built a custom ESP32 symbol, and understand I²C. Now bring it all together. Take the "minimum viable flight controller" from Session 3 Exercise 7 and turn it into a real PCB — with one new addition that turns it from a glorified motor switch into something a drone could actually use: an IMU.
+
+Objective: Design a complete two-layer PCB carrying all of the following:
+
+A socket for the 30-pin ESP32 dev board. Use the custom symbol and footprint you built in Exercise 6. Place it so the USB connector hangs off the edge of your board for easy access.
+
+A status LED (D1) with a current-limiting resistor (R1) on the GPIO 4 pin.
+
+A pushbutton (SW1) between GPIO 23 and GND. Find a tactile switch footprint in Button_Switch_THT — the 6 mm one is easy to place.
+
+The transistor-driven motor switch from Session 2 Exercise 6: a 2N2222 (or BC547) NPN, a 1k base resistor on GPIO 19, a flyback diode (1N4001) across the motor, and a 2-pin screw terminal for the motor wires.
+
+A battery-monitor voltage divider feeding GPIO 34: 10k on top, 4.7k on the bottom, midpoint to GPIO 34. Connect the top to a separate 2-pin screw terminal labelled VBAT.
+
+An IMU breakout connector. A 1×8 pin socket on a 2.54 mm pitch, sized to match the GY-521 (MPU-6050) breakout board you sourced in Exercise 5. Wire its pins per the breakout's silkscreen: VCC → 5V, GND → GND, SDA → ESP32 GPIO 21, SCL → ESP32 GPIO 22, AD0 → GND (sets address 0x68). The remaining INT, XCL, XDA pins can be left floating for now (they are for advanced features you will not use in a basic flight controller).
+
+I²C pull-up resistors. 4.7 kΩ from SDA to 3.3V, 4.7 kΩ from SCL to 3.3V. Place them near the ESP32 socket, not near the IMU. The MPU-6050 breakout has its own pull-ups but they are weak and conflict with longer wire runs — adding your own is good practice.
+
+A 100 nF decoupling capacitor next to the ESP32's 3.3V pin, another at the 5V input, and another at the IMU connector's VCC pin.
+
+A 470 µF electrolytic capacitor at the motor's power input — your local energy reservoir, exactly as discussed in Session 2 Exercise 7.
+
+A solid ground plane on the back side.
+
+Silkscreen labels for every connector and your name on the top side somewhere visible.
+
+Components: KiCad project, the custom symbol library from Exercise 6, the standard KiCad libraries, and your patience
+
+
+A suggested workflow
+
+Schematic first, complete. Draw the entire circuit. Annotate. Run ERC. Do not start layout until ERC is clean. The schematic should fit on one A4 page if you keep things tidy.
+Rather than trying to draw a big mess of wires, you can use global labels to connect nets. This allows you to compartmentalise sections. Ask your LLM about this. 
+
+Footprint assignment. Make every passive 1206 SMD; every connector and switch through-hole; the transistor TO-92 through-hole; the diode DO-41 through-hole. Hand-solderable for everyone.
+
+Update PCB from schematic (F8). All components appear at the origin in a heap.
+
+Place the ESP32 socket first. It is the largest component and dictates everything else. Place it so the USB connector overhangs one edge, allowing programming without removing the board from the drone.
+
+Place the IMU breakout connector second. Position considerations: the IMU should be near the centre of the board (roll/pitch axes are most accurate at the centre of mass), and the I²C lines from the ESP32 should be short. Place it next to the ESP32 socket if you can, with SDA and SCL as direct routes.
+
+Place power components carefully. Motor transistor, flyback diode, and 470 µF cap go together near the motor terminal. Voltage divider goes near where VBAT enters. Decoupling caps go right next to their respective power pins (this is critical — see Exercise 4).
+
+Draw the board outline. Aim for under 100 × 100 mm — that is the JLCPCB special-pricing threshold. Probably 60 × 50 mm is plenty for this board.
+
+Route signal traces on top, power traces wider, ground via the back-side plane. Use 0.25–0.3 mm for signals (including I²C), 0.6 mm for 3.3V and 5V, 1.0 mm for the motor power line. Keep SDA and SCL roughly parallel and similar in length — not critical at 400 kHz, but a good habit.
+
+Add the ground plane on B.Cu. Press B to fill.
+
+Run DRC. Fix every error. Iterate.
+
+3D viewer. Look at it. Does it look right? Is there a connector you forgot? A label missing? Imagine it on the drone — can you reach the button? Can you plug in USB?
+
+Generate Gerbers. Inspect in the JLCPCB viewer. Order if you want.
+
+Stretch goals
+
+Add a power LED that is on whenever VBAT is connected, with its own resistor. Place it near the VBAT input — it doubles as a "battery connected" indicator.
+
+Replace the 2N2222 with a logic-level MOSFET (look up the IRLZ44N or AO3400 datasheet). MOSFETs handle higher current with less heat. The base resistor becomes a gate resistor; flyback diode logic is the same. Read the datasheet for the pinout — it will not match the 2N2222.
+
+Add mounting holes in the four corners. M3 holes are standard — search for MountingHole_3.2mm_M3 in the Mechanical library. Important: do NOT route copper near them, and consider putting copper rings around them connected to GND if you want them grounded for shielding.
+
+Add a 3.3V LDO regulator (e.g. AMS1117-3.3) so the board can run from a battery directly without the ESP32 dev board's onboard regulator. Add input and output decoupling caps as the datasheet specifies — 10 µF on each side is typical.
+
+Upgrade the IMU. Use SnapMagic or Ultra Librarian to download the symbol/footprint for an ICM-42688-P, and design the chip directly onto the board (no breakout). You will need to add the pull-ups, decoupling caps, and SPI signal routing yourself — read the datasheet's reference design carefully. The chip is in a 2.5 × 3 mm LGA package, which is hard to hand-solder but possible with hot air or a cheap reflow oven. This is what real flight controllers look like.
+
+Add a second I²C device — a barometer (BMP280 breakout, around £3) for altitude, or a magnetometer (HMC5883L) for compass heading. Wire it to the same SDA/SCL bus, no extra wires needed. This is the whole point of I²C: many chips, two wires. Verify each chip has a unique address by checking the datasheets.
+
+Success Target: A complete, DRC-clean two-layer PCB with all required components placed and routed, ground plane on the back, and Gerbers generated. If you order it, even better — bring the boards to the next session and we will solder them and bring them up to a working flight controller.
+
+Think About It Halfway through routing, you realise the ESP32 socket is in the middle of the board and the motor terminal is on the right edge — but the GPIO 19 pin you need to route to the motor transistor is on the left side of the ESP32. The trace would have to cross half the board, going under five other traces. What are your three options, ranked from worst to best, and which would you actually pick?
+
+
+════════════════════════════════════════════════════════════
+
+ANSWERS
+
+════════════════════════════════════════════════════════════
+
+Answer 00 — Why Bother With PCBs?
+
+Altium has features your club does not need: high-speed signal integrity simulation, integrated mechanical CAD, length-matched differential pair routing for DDR memory, FPGA pin swap optimisation, supply-chain-integrated BOM management, and large-team version control with check-in/check-out. A company designing a complex motherboard with 16 layers and gigabit signals justifies the cost in saved engineer-hours. For a two-layer drone board with an ESP32 and a motor, KiCad does everything Altium does — the only thing you give up is some polish in the user interface and a few specialist features. The output Gerbers are byte-for-byte equivalent. JLCPCB cannot tell which tool you used, and neither can the board.
+
+────────────────────────────────────────────────────────────
+
+Answer 01 — Your First Schematic
+
+Almost certainly grid alignment. KiCad snaps wires and pins to a grid, and if the wire endpoint is one grid unit off from the pin, ERC sees them as not connected even though they look connected on screen. Zoom in heavily: a real connection shows a small green dot (junction) where the wire meets the pin. No dot, no connection. Fix: delete the wire, make sure the grid is set to 50 mil (1.27 mm), and redraw. Many beginners change the grid mid-design and discover everything is misaligned.
+
+────────────────────────────────────────────────────────────
+
+Answer 02 — Footprints
+
+The schematic models electrical connectivity, not physical reality. From the schematic's point of view, "an LED with anode on net X and cathode on net Y" is fully specified — the schematic does not know or care about size. The footprint carries all the physical information: hole positions, pad sizes, body outline. Swapping footprints does not change the schematic. This is exactly why KiCad asks you to assign footprints as a separate step — it forces you to think about physical reality consciously, rather than assuming. The fix: open the assignment dialog and re-assign D1 to a 5 mm through-hole footprint.
+
+────────────────────────────────────────────────────────────
+
+Answer 03 — Layout and Routing
+
+The trace was undersized for the current. Resistive heating: P = I² × R. A thin trace has higher R, dissipates more heat, and over time the copper oxidises and degrades. The trace might survive bench testing at low duty but fail under continuous flight load — especially as vibration accelerates the failure. The discoloration is oxidation. The fix is to follow the IPC-2152 trace-width chart: for 1 A on 1 oz copper with a 10°C temperature rise, you need about 0.4 mm minimum; for safety, double it. Power traces are never minimum width.
+
+────────────────────────────────────────────────────────────
+
+Answer 04 — Ground Planes, Decoupling, and Trace Widths
+
+Routing a signal trace on the back side breaks the ground plane underneath the top-side traces — there is now a slot in the ground plane where return currents cannot flow directly underneath the signal. Return current has to detour around the slot, creating a larger loop antenna. Under a strong RF field (the radio transmitter), this loop picks up enough induced voltage to disturb the chip's ground reference, causing resets. The fix: do not break the ground plane with signal traces. If you must route a trace on the back, keep it short, far from sensitive signals on top, and do not span across return current paths.
+
+────────────────────────────────────────────────────────────
+
+Answer 05 — Sourcing Parts
+
+The breakout board's 5V regulator exists so the breakout can be plugged into a 5V Arduino without frying the chip — Arduinos run on 5V logic and supply 5V to peripherals. The MPU-6050 is strictly a 3.3V part. The regulator on the breakout takes 5V in and gives the chip a clean 3.3V.
+
+If your own board already has a 3.3V supply (which the ESP32 dev module provides on its 3V3 pin), you do not want a second regulator in series — it would drop another 0.5–1V (the regulator's "dropout voltage"), leaving your IMU running at 2.3V or below, possibly outside its operating range. The fix on a breakout: most have a solder jumper or you can wire the breakout's "VCC" pin to your 3.3V rail directly, bypassing the regulator. But the GY-521 is so cheap and ubiquitous that the easiest answer is just to feed it 5V (it has the regulator already) and wire your I²C lines to the ESP32 normally — the I²C bus tolerates the 3.3V signals fine because the chip itself is on 3.3V on the breakout's other side. The ESP32 is also 3.3V logic, so even though VCC is 5V, the SDA/SCL signals are at 3.3V. This is a common piece of confusion: power voltage ≠ signal voltage.
+
+────────────────────────────────────────────────────────────
+
+Answer 06 — Symbols and Libraries
+
+The footprint exists, just under a name you might not expect. KiCad's footprint libraries name socket footprints with the row count first: 2x15 means 2 rows of 15 pins. But PinSocket_2x15_P2.54mm_Vertical is a vertical-mount socket where pins point upward; you may need _Horizontal (pins coming out the side). The row spacing is also fixed at 2.54 mm in this default footprint, but your dev board may have rows 25.4 mm apart (1 inch) — much wider. Search for PinSocket_2x15_P2.54mm_Pitch_25.4mm_Horizontal or similar. If nothing matches your row spacing, you make a custom footprint, which is exactly what Exercise 6 walked you through. The lesson: KiCad's library is comprehensive but uses precise naming conventions; learn to search with multiple keyword combinations, and always measure your physical part with calipers before trusting any footprint.
+
+────────────────────────────────────────────────────────────
+
+Answer 07 — I²C and SPI
+
+Without pull-ups, the open-drain outputs on the I²C chips can only pull the lines LOW — they cannot drive HIGH. So when no chip is actively driving the bus, both lines float somewhere undefined or sit at 0V (because the chips' internal weak pull-downs win, or the lines are pulled down by parasitic effects). Your ESP32 starts a transaction by trying to drive SCL HIGH, but the line is already LOW and there is no pull-up to bring it back up. The bus is stuck. The "physics violation" is that you assumed an output stage would actively drive both directions, but I²C is open-drain by design — the pull-ups are not optional, they are part of the bus's electrical specification. Fix: add 4.7 kΩ resistors from SDA to 3.3V and from SCL to 3.3V. With them, the lines sit at 3.3V at rest, and chips pull them LOW briefly when transmitting.
+
+────────────────────────────────────────────────────────────
+
+Answer 08 — DRC, Gerbers, and Ordering
+
+You probably placed the silkscreen text on the B.Silkscreen layer instead of F.Silkscreen, or you placed it on F.Silkscreen but the text was mirrored. Fix: select the text, press E, check the layer assignment and the "mirrored" flag. Always inspect Gerbers in the fab's viewer (or KiCad's built-in Gerber viewer at File → Plot → Open Output Directory) before ordering. You will catch this in 30 seconds for free, instead of paying $5 plus shipping for boards with backwards labels.
+
+────────────────────────────────────────────────────────────
+
+Answer 09 — Design Challenge
+
+Three options, worst to best:
+
+Worst: route the trace on the bottom side, under the ground plane. Breaks the ground plane (see Answer 04). Causes EMI and reset issues. Avoid.
+
+Middle: route the trace on top, over five other traces, with five vias jumping to the back and back up. Works electrically but is ugly, increases inductance, and uses up real estate.
+
+Best: rearrange the placement. Move the motor terminal to the left edge of the board, near the GPIO 19 pin. Or rotate the ESP32 socket 180° so the GPIO 19 pin ends up on the right. Layout problems are usually placement problems in disguise. Nine times out of ten the right move is to step back, undo your routing, move components, and try again. Layout is iterative — expect to re-route any board three or four times before you are happy.
+
+────────────────────────────────────────────────────────────
+
+COMMON GOTCHAS — THINGS THAT WILL BURN A WHOLE SESSION IF YOU DO NOT KNOW THEM
+
+PCB design has its own list of "I lost an evening to this" traps. Most of them are not in the documentation because they are too embarrassing to admit. Read these before you start.
+
+Schematic hygiene
+
+Always run ERC before moving to layout. A floating wire on the schematic becomes an unrouted net on the board, which becomes a non-working circuit when soldered. The error costs five minutes to find on the schematic; five hours to find on the board with a multimeter.
+
+Annotate before assigning footprints. Auto-annotation (Tools → Annotate Schematic) is what gives components their R1, C1, U1 names. Skip this and KiCad has nothing to track parts by, and footprint assignment fails silently.
+
+Never edit a symbol's pins on the schematic. If a chip needs different pin arrangements, edit the symbol in the symbol editor or pick a different one. Editing pins on the schematic is a common cause of "everything looks right but nothing connects".
+
+Layout traps
+
+Do not route on the F.Silkscreen layer. Sounds obvious. Easy to do by accident if you forget which layer is selected. Silkscreen is just paint — it is not copper. Your "trace" is a non-conductive line that does nothing. Always glance at the active layer indicator before routing.
+
+Vias have a minimum size. JLCPCB's cheap process needs vias of at least 0.3 mm hole / 0.6 mm annular ring. Smaller is more expensive. Default KiCad values are usually fine, but if you change them, check fab capability.
+
+Traces near the edge are risky. Keep traces at least 0.3 mm from the Edge.Cuts. Boards are routed with milling tools and a tiny shift can shave off your trace. Same for pads.
+
+Polygon pours need to be re-filled after edits. If you move a component or add a trace, the polygon pour does not automatically update. Press B to re-fill all zones. Forgetting this leaves you with a board that looks fine but has missing connections.
+
+Footprint disasters
+
+Connector pin order can be reversed. A 2-pin header has no orientation. A 4-pin connector might be labelled 1-2-3-4 left-to-right OR right-to-left depending on the footprint. Always check by looking at the pin numbers in the 3D view. If your power and ground are swapped, you will discover it the moment you plug in the battery.
+
+SMD footprint sizes are imperial codes. 1206 = 0.12 × 0.06 inches. 0805 = 0.08 × 0.05 inches. A "1206 metric" exists too — confusingly, it refers to a 3.2 × 1.6 mm part (which in imperial is also called 1206). Always check dimensions, not just the name.
+
+Polarised parts have polarity. Electrolytic capacitors and diodes have a + and - leg. The footprint's silkscreen marks polarity (a stripe, a + symbol). Soldering them backwards makes the cap bulge or the diode block current in the wrong direction. Not catastrophic the first time but always wrong.
+
+Custom symbols and libraries
+
+Project libraries vs global libraries. A project library lives inside your project folder; a global library is shared across all your projects. Use project libraries for one-off custom symbols (like the 30-pin ESP32 you may build for one specific board). Use global libraries for things you will reuse — your standard pull-up resistor with preferred footprint, your favourite USB-C connector. Mixing the two is fine, but when you ZIP a project to share with someone, project libraries travel with it; global ones don't, and the recipient will see broken symbol references.
+
+Pin numbers and pin names are different things. Pin numbers correspond to physical positions on the connector. Pin names are functional labels. KiCad uses pin numbers for the symbol-to-footprint mapping. If you ever hand-edit a symbol and accidentally renumber pins, the schematic looks fine but the netlist sends wrong nets to wrong pads. Always double-check pin numbers when editing custom symbols.
+
+SnapEDA / Ultra Librarian footprints can have wrong default 3D models. The 2D footprint (pads and silkscreen) is usually correct because it is verified. The 3D model (the visual you see in 3D Viewer) is sometimes off — wrong package height, missing pin colour. This is cosmetic, not electrical, so do not panic. If the 2D pads match the datasheet, the board will work.
+
+Always check imported footprints against the datasheet. Even from "trusted" sources. Open the manufacturer's PDF, find the package drawing, compare pad-by-pad with the imported footprint. Five-minute check, prevents an unsolderable board.
+
+I²C and SPI traps
+
+I²C address conflicts. Two chips with the same address on the same bus cannot coexist — they will both respond to the master and the bus collapses. Before adding a second I²C device, check both datasheets and confirm the addresses differ. Some chips have an address-select pin (like AD0 on the MPU-6050) that lets you flip between two addresses; some do not. The BMP280 barometer, for instance, defaults to 0x76 with SDO low or 0x77 with SDO high — pick whichever does not clash with your IMU.
+
+Pull-up sizing. 4.7 kΩ is the safe default for I²C at 100 kHz. At 400 kHz on a board with several devices, you may need 2.2 kΩ. Too weak (10 kΩ on a long bus with many devices) and the rise time is too slow; signals look like ramps and chips misread them. Too strong (1 kΩ) and the chips' open-drain pull-down outputs cannot pull the bus low enough. Stick with 4.7 kΩ unless you have a reason.
+
+Forgetting that the breakout already has pull-ups. Most cheap breakouts (GY-521 for MPU-6050, BMP280 modules, etc.) include 4.7 kΩ pull-ups on the breakout itself. Adding 4.7 kΩ on your board too means 2.35 kΩ effective — still fine, but if you have three breakouts on one bus, the parallel resistance drops below 1 kΩ and chips struggle. Either decide the breakout is authoritative, or remove the breakout's pull-ups (a small surface-mount component you can desolder). For a single IMU on a clean board, redundancy is harmless.
+
+CS pins are output, not input. When using SPI, a CS line going from your microcontroller to the chip is driven by the microcontroller (configured as output, set HIGH or LOW in software). If you accidentally configure it as input, it floats, and the chip never knows when it is being addressed. Common mistake when copy-pasting code between projects.
+
+3.3V vs 5V on bus signals. I²C and SPI are signal-level standards, not voltage-level standards. A 5V Arduino can talk to a 3.3V MPU-6050 only with level shifters or specific tolerance — the MPU-6050 is not 5V tolerant, so a 5V SDA could damage it. The ESP32 is 3.3V logic, which matches the MPU-6050 directly: no level shifters needed. But check every component's voltage tolerance before mixing levels.
+
+Output and ordering
+
+Always inspect Gerbers before ordering. Use the fab house's viewer. Look at every layer individually. Mirrored silkscreen, missing solder mask, traces ending in midair — these are all visible in the viewer and invisible in KiCad's "everything-on" view.
+
+Match the board outline layer. JLCPCB expects the outline on a specific layer (Edge.Cuts in KiCad). Outline on the wrong layer = manufacturer asking questions and delaying your order by days.
+
+Specify your units correctly. KiCad defaults to mm. If you accidentally export in mils (thousandths of an inch), your 50 mm board becomes a 1.97 mm board. The fab will catch this but you will lose a day to the email exchange.
+
+Read the datasheet (this never goes away)
+
+Every footprint you use should be cross-checked against the datasheet of the part you intend to put in it. The KiCad library is mostly correct but has had wrong footprints in the past for niche parts. Your 2N2222 has Emitter-Base-Collector pinout in TO-92, but not all NPN transistors do. Your AMS1117 might have a different pin order from the AMS1117-3.3 with the same package. The datasheet always wins.
+
+Final word: design for testability
+
+A board that works on the bench but cannot be debugged when broken is a bad board. Add test points (small through-hole pads) on every important signal: 3.3V, 5V, GND, GPIO 4, GPIO 19, GPIO 34. They cost nothing in PCB area and save hours when something fails. Every flight controller you ever open up has them. Yours should too.
+

@@ -1,0 +1,32 @@
+In 6 months from the kick off of this course your drones will compete against each other in 3 categories:
+
+Hover stability
+The ability to hover in a single spot without drifting
+Controlled 3d movement
+Autonomous movement following a predefined course
+An obstacle course
+A timed human controlled lap around a drone obstacle course
+
+The rules are as follows:
+
+Your drones must have exactly 4 motors (quadrotor) 
+They must fly in FPV mode
+They must be built and integrated by the team
+They must be safe to operate indoors under supervision
+
+You may:
+look at open-source designs
+read build logs
+study commercial drones
+
+You may not:
+directly copy CAD files
+reuse PCB layouts
+assemble kits
+
+Everything must be:
+Designed
+Ordered
+Assembled
+Debugged
+

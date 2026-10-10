@@ -1,0 +1,30 @@
+1. Flight controller [Matek F405-HDTE](https://yourfpv.co.uk/product/matek-f405-hdte-flight-controller/)
+
+2. Motors — 4 × [T-Motor Velox V2207 V3 2550KV](https://www.hobbyrc.co.uk/t-motor-v2207-v3-2550kv-motor), £51.60 total. A fifth motor is a useful competition spare but is not required to assemble one aircraft.
+3. Batttery [https://yourfpv.co.uk/product/dogcom-1300mah-4s-14-8v-150c-lipo-battery-xt60/] 150g
+4. Blades/props [https://yourfpv.co.uk/product/gemfan-sbang-4935-3-4-9-3-blade-freestyle-propellers/]
+5. Charger [Couldn't find a fit for the battery]
+6. 4-in-1 ESC [https://www.flyingtech.co.uk/product/newbeedrone-305-4in1-esc-racespec-80a-3-8s-am32-30x30/]
+
+7. Raspberry pi zero 2 w * no headers [https://cpc.farnell.com/raspberry-pi/rpi-zero-w-v2/raspberry-pi-zero-w-v2/dp/SC19061]
+8. Camera
+| 9 | Navigation camera | 1 | [Raspberry Pi Camera Module 3 Wide](https://www.raspberrypi.com/products/camera-module-3/) | ~£35 | 120° diagonal field of view, CSI-2 connection. Use the visible-light Wide model unless the competition environment specifically calls for NoIR. Lock focus/exposure in software where practical and calibrate the installed camera intrinsics. | 
+PLUS 
+| 10 | Pi Zero camera cable | 1 | 15-pin camera to 22-pin Pi Zero CSI cable | ~£3 | Required: the normal Camera Module 3 cable does not fit the Pi Zero connector. Select a short cable that reaches without folding sharply. |
+9. microSD card for Raspberry [https://www.aliexpress.com/item/1005012337269274.html?isdl=y&aff_fsk=_ol8w4bv&src=SalesoarUKgeneral&aff_platform=aff_feeds&aff_short_key=_ol8w4bv&pdp_npi=4%40dis!GBP!3.84!3.84!!!!!%40!12000058137552304!afff!!!&dp=Cj0KCQjw8JPVBhD-ARIsAO691sFEc0nrgRRdFVv3mknD2GVfi9Tx_5PNz0saC_ux6ZNSOaC4rVJiC8waAoUDEALw_wcB|0AAAAA_4-1Lk3Y6lYy0i3mrVv-XECXRZAh|Cj8KCQjwzY7VBhDpARIuACVAqzrtz_VZoMLvKOxRtbnk9whQOb0zJgbYbZv4WfSBcWOa0pm_Fuj0KVOBhRoCuHc|v1&cn=gb_a&gad_source=1]
+
+11. RC LINK Transmitter/Receiver [https://www.aliexpress.com/item/1005006341532742.html?src=bing&exp_tag=pcgcp&albch=shopping&acnt=135105396&albcp=555668974&albag=1304022046898152&slnk=&trgt=pla-2333301113531984&plac=&crea=81501440716540&netw=s&device=c&mtctp=e&utm_source=Bing&utm_medium=shopping&utm_campaign=PA_Bing_+global_%E7%8E%A9%E5%85%B7_PMAX_9_MAXV__AESupply_12.23_+hylt_1004323270&utm_content=1&utm_term=rc+transmitter&msclkid=96da299271a214200204433724f87127&aff_fcid=a52ef94271b6448f8c7e788f79861f79-1789220209745-01964-UneMJZVf&aff_fsk=UneMJZVf&aff_platform=aaf&sk=UneMJZVf&aff_trace_key=a52ef94271b6448f8c7e788f79861f79-1789220209745-01964-UneMJZVf&terminal_id=61f715f56f7c4dc6a6283d8a8728c926&afSmartRedirect=n]
+
+https://www.hobbyrc.co.uk/radiomaster-rp1-elrs-receiver
+
+
+12. Dedicated 5V bec for Pi [https://www.aliexpress.com/item/1005010749057922.html?src=bing&exp_tag=pcgcp&albch=shopping&acnt=135095331&albcp=554851195&albag=1306220947490970&slnk=&trgt=pla-4585238373891532&plac=&crea=81638863712723&netw=s&device=c&mtctp=e&utm_source=Bing&utm_medium=shopping&utm_campaign=PA_Bing_UK_PLA_PC%2FM_SFFC_ALL_MaxValue_20240204&utm_content=All&utm_term=dedicated+5v+bec&msclkid=222184afca8b1539b3fcee0a9c68ba47&aff_fcid=213e155efb0e42dbb96a03175a6a72ff-1789220607242-09154-UneMJZVf&aff_fsk=UneMJZVf&aff_platform=aaf&sk=UneMJZVf&aff_trace_key=213e155efb0e42dbb96a03175a6a72ff-1789220607242-09154-UneMJZVf&terminal_id=61f715f56f7c4dc6a6283d8a8728c926&afSmartRedirect=n]
+OR 
+| 11 | Dedicated Pi regulator | 1 | [Pololu D24V50F5 5 V, 5 A step-down regulator](https://www.pololu.com/product/2851) | ~£30 | Replaces the unknown BEC. Accepts the 4S battery voltage and gives ample regulated 5 V capacity. Follow the manufacturer's capacitor/layout guidance, fuse the branch if practical, load-test it, and verify 5.0 V before connecting the Pi. Do not power the Pi from the FC's 5 V rail. |
+| 6 | ESC input capacitor | 1 fitted | One of the supplied 470 µF, 35 V low-ESR capacitors | included | Solder it directly across the ESC battery pads with the shortest practical leads and correct polarity. Keep the second as a spare. |
+
+
+
+OPTIONAL: 
+
+10. USB-TO-UART [https://www.ebay.co.uk/itm/398117796092?mkevt=1&mkcid=1&mkrid=710-53481-19255-0&campid=5339142649&toolid=20006&customid=d9dc9e39399f13a35286f49c68e9d43f||&adtype={adtype}&loc_interest_ms={loc_interest_ms}&loc_physical_ms={loc_physical_ms}&gclid=null&gclid=d9dc9e39399f13a35286f49c68e9d43f]
